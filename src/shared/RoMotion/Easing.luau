@@ -1,32 +1,6 @@
 --!strict
 --!optimize 2
 --!native
--- RoMotion easing library.
---
--- Provides the built-in named Easing_Library (Linear, Quad, Cubic, Quart,
--- Quint, Sine, Expo, Circ, Back, Elastic, Bounce, each with In/Out/InOut
--- variants) plus `Easing.resolve`, which turns a Tween_Config `ease` field
--- (a name string, a custom Easing_Function, or nil) into a concrete
--- Easing_Function. See design.md "Easing.luau" and requirements.md
--- Requirement 5 for the authoritative contract.
---
--- CONVENTION (exact endpoints):
--- Every named easing function must return EXACTLY 0 at t=0 and EXACTLY 1 at
--- t=1 (Requirements 5.2, 5.3). Several of the underlying formulas (notably
--- Elastic and Bounce) accumulate floating-point drift near the boundaries
--- when evaluated directly, so rather than hand-tuning ~30 formulas, every
--- named function is wrapped with `exact01`, which short-circuits t=0 and
--- t=1 before the underlying formula ever runs. The raw formulas themselves
--- only ever need to be correct -- and finite -- on the open interval (0, 1)
--- (Requirement 5.4), which they are.
---
--- CONVENTION (name lookup / resolve):
--- Named easing functions are exposed two ways: nested access for direct use
--- (`Easing.Quad.InOut`) and a flat `name -> function` table (`"Quad.InOut"`,
--- `"Bounce.Out"`, ...) used by `Easing.resolve` for string lookup
--- (Requirement 5.5). Because Linear's three variants are identical, the bare
--- name `"Linear"` (no `.In`/`.Out`/`.InOut` suffix) is also accepted as an
--- alias for `Easing.Linear.InOut`.
 
 local Errors = require(script.Parent.Errors)
 local Types = require(script.Parent.Types)
@@ -34,9 +8,6 @@ local Types = require(script.Parent.Types)
 type Easing_Function = Types.Easing_Function
 
 local Easing = {}
-
---- Wraps a raw easing formula so t=0 and t=1 always return exactly 0 and 1,
---- regardless of floating-point drift in the underlying formula.
 local function exact01(fn: (number) -> number): Easing_Function
 	return function(t: number): number
 		if t == 0 then
@@ -48,18 +19,12 @@ local function exact01(fn: (number) -> number): Easing_Function
 	end
 end
 
--- ---------------------------------------------------------------------------
 -- Linear
--- ---------------------------------------------------------------------------
-
 local function linear(t: number): number
 	return t
 end
 
--- ---------------------------------------------------------------------------
 -- Quad
--- ---------------------------------------------------------------------------
-
 local function quadIn(t: number): number
 	return t * t
 end
@@ -78,10 +43,7 @@ local function quadInOut(t: number): number
 	end
 end
 
--- ---------------------------------------------------------------------------
 -- Cubic
--- ---------------------------------------------------------------------------
-
 local function cubicIn(t: number): number
 	return t * t * t
 end
@@ -100,10 +62,7 @@ local function cubicInOut(t: number): number
 	end
 end
 
--- ---------------------------------------------------------------------------
 -- Quart
--- ---------------------------------------------------------------------------
-
 local function quartIn(t: number): number
 	return t * t * t * t
 end
@@ -122,10 +81,7 @@ local function quartInOut(t: number): number
 	end
 end
 
--- ---------------------------------------------------------------------------
 -- Quint
--- ---------------------------------------------------------------------------
-
 local function quintIn(t: number): number
 	return t * t * t * t * t
 end
@@ -144,10 +100,7 @@ local function quintInOut(t: number): number
 	end
 end
 
--- ---------------------------------------------------------------------------
 -- Sine
--- ---------------------------------------------------------------------------
-
 local HALF_PI = math.pi / 2
 
 local function sineIn(t: number): number
@@ -162,10 +115,7 @@ local function sineInOut(t: number): number
 	return -(math.cos(math.pi * t) - 1) / 2
 end
 
--- ---------------------------------------------------------------------------
 -- Expo
--- ---------------------------------------------------------------------------
-
 local function expoIn(t: number): number
 	return 2 ^ (10 * t - 10)
 end
@@ -182,10 +132,7 @@ local function expoInOut(t: number): number
 	end
 end
 
--- ---------------------------------------------------------------------------
 -- Circ
--- ---------------------------------------------------------------------------
-
 local function circIn(t: number): number
 	return 1 - math.sqrt(1 - t * t)
 end
@@ -205,10 +152,7 @@ local function circInOut(t: number): number
 	end
 end
 
--- ---------------------------------------------------------------------------
 -- Back
--- ---------------------------------------------------------------------------
-
 local BACK_C1 = 1.70158
 local BACK_C2 = BACK_C1 * 1.525
 local BACK_C3 = BACK_C1 + 1
@@ -232,10 +176,7 @@ local function backInOut(t: number): number
 	end
 end
 
--- ---------------------------------------------------------------------------
 -- Elastic
--- ---------------------------------------------------------------------------
-
 local ELASTIC_C4 = (2 * math.pi) / 3
 local ELASTIC_C5 = (2 * math.pi) / 4.5
 
@@ -255,15 +196,10 @@ local function elasticInOut(t: number): number
 	end
 end
 
--- ---------------------------------------------------------------------------
 -- Bounce
--- ---------------------------------------------------------------------------
-
 local BOUNCE_N1 = 7.5625
 local BOUNCE_D1 = 2.75
 
--- Shared raw bounce-out formula reused by bounceIn/bounceInOut via the
--- standard "mirror through 1-t" and "half-and-mirror" compositions.
 local function bounceOutRaw(t: number): number
 	if t < 1 / BOUNCE_D1 then
 		return BOUNCE_N1 * t * t
@@ -294,12 +230,6 @@ local function bounceInOut(t: number): number
 		return (1 + bounceOutRaw(2 * t - 1)) / 2
 	end
 end
-
--- ---------------------------------------------------------------------------
--- Requirement 5.1: assemble the nested Easing_Library surface
--- (`Easing.Quad.InOut`, `Easing.Bounce.Out`, ...), each variant wrapped with
--- `exact01` to satisfy Requirements 5.2, 5.3.
--- ---------------------------------------------------------------------------
 
 Easing.Linear = {
 	In = exact01(linear),
@@ -367,11 +297,6 @@ Easing.Bounce = {
 	InOut = exact01(bounceInOut),
 }
 
--- ---------------------------------------------------------------------------
--- Requirement 5.5: flat `name -> Easing_Function` table used by `resolve`
--- for exact-match string lookup (e.g. "Quad.InOut", "Bounce.Out").
--- ---------------------------------------------------------------------------
-
 local EasingByName: { [string]: Easing_Function } = {
 	["Linear.In"] = Easing.Linear.In,
 	["Linear.Out"] = Easing.Linear.Out,
@@ -408,33 +333,21 @@ local EasingByName: { [string]: Easing_Function } = {
 	["Bounce.InOut"] = Easing.Bounce.InOut,
 }
 
--- Bare "Linear" is accepted as an alias for "Linear.InOut": all three Linear
--- variants are identical, so there is no In/Out/InOut distinction to lose.
 EasingByName["Linear"] = Easing.Linear.InOut
 
 local DEFAULT_EASING_NAME = "Quad.InOut"
 
--- ---------------------------------------------------------------------------
--- Requirements 5.5, 5.6, 5.7, 5.8: resolve a Tween_Config `ease` field (a
--- name string, a custom Easing_Function, or nil) to a concrete
--- Easing_Function.
--- ---------------------------------------------------------------------------
 function Easing.resolve(ease: (string | Easing_Function)?): Easing_Function
-	-- Requirement 5.7: omitted `ease` defaults to Quad.InOut.
 	if ease == nil then
 		return EasingByName[DEFAULT_EASING_NAME]
 	end
 
 	local easeType = typeof(ease)
 
-	-- Requirement 5.6: a supplied function is passed through as-is; RoMotion
-	-- invokes it directly with progress `t` when rendering the Tween.
 	if easeType == "function" then
 		return ease :: Easing_Function
 	end
 
-	-- Requirement 5.5: an exact-match string name resolves to the
-	-- corresponding Easing_Library entry.
 	if easeType == "string" then
 		local name = ease :: string
 		local fn = EasingByName[name]
@@ -442,14 +355,10 @@ function Easing.resolve(ease: (string | Easing_Function)?): Easing_Function
 			return fn
 		end
 
-		-- Requirement 5.8: unknown easing name -- error and do not resolve.
 		Errors.unknownEasing(name)
 		return (nil :: any) :: Easing_Function -- unreachable: unknownEasing always raises
 	end
 
-	-- Defensive fallback: `ease` is typed as `(string | Easing_Function)?`,
-	-- so this branch is unreachable for well-typed callers, but is handled
-	-- rather than silently returning an invalid value.
 	Errors.unknownEasing(tostring(ease))
 	return (nil :: any) :: Easing_Function -- unreachable: unknownEasing always raises
 end

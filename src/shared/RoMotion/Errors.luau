@@ -1,42 +1,9 @@
 --!strict
--- RoMotion centralized error message builders.
---
--- Every user-facing validation error in RoMotion is raised through this
--- module so that messages are consistently formatted and always name the
--- offending argument/field and its value. See design.md "Error Handling"
--- for the authoritative condition -> requirement -> behavior table; each
--- exported function below corresponds to exactly one row of that table.
---
--- CONVENTION (raise level):
--- Every function in this module directly raises via `error(message, level)`
--- instead of returning a message string. Calling code simply does:
---
---     Errors.invalidDuration(value)  -- never returns; always throws
---
--- All builders call `error` with level 3. Level 1 would point at the `error`
--- call site inside this module (useless to the caller). Level 2 would point
--- at the validating function that called into Errors.luau (e.g. the body of
--- `Tween.to`), which is still internal to RoMotion. Level 3 walks one frame
--- further up the stack, past the validating/factory function, to the code
--- that actually called that factory/method -- i.e. the user's call site.
--- This matches "eager validation in the factory functions" described in
--- design.md: the factory (or a small helper it calls at the top of its own
--- body) is expected to call straight into an Errors.* builder, so 3 frames
--- up (error -> builder -> factory) lands on the caller of the factory.
---
--- If a validation helper is nested more than one call deep below the public
--- factory/method (i.e. Errors.* is invoked from a helper that itself is
--- invoked by the factory, not from the factory body directly), that extra
--- frame should be accounted for by wrapping the call in `pcall`/`assert` at
--- the shallower frame instead of by changing the level here, to keep this
--- module's convention uniform.
 
 local RAISE_LEVEL = 3
 
 local Errors = {}
 
---- Formats a Luau `typeof`-style value into a short, readable string for
---- error messages (handles nil, primitives, and generic tables/instances).
 local function describe(value: any): string
 	if value == nil then
 		return "nil"
@@ -57,9 +24,6 @@ local function joinNames(names: { string }): string
 	return table.concat(names, ", ")
 end
 
--- ---------------------------------------------------------------------------
--- Requirement 2.4: `duration` provided and not a number > 0.
--- ---------------------------------------------------------------------------
 function Errors.invalidDuration(value: any)
 	error(
 		string.format(
@@ -70,16 +34,10 @@ function Errors.invalidDuration(value: any)
 	)
 end
 
--- ---------------------------------------------------------------------------
--- Requirements 2.5, 3.5: nil Target.
--- ---------------------------------------------------------------------------
 function Errors.nilTarget()
 	error("RoMotion: invalid argument Target (nil) -- Target must not be nil", RAISE_LEVEL)
 end
 
--- ---------------------------------------------------------------------------
--- Requirements 2.6, 3.5: nil or empty Property_Map.
--- ---------------------------------------------------------------------------
 function Errors.emptyPropertyMap(value: any)
 	error(
 		string.format(
@@ -90,9 +48,6 @@ function Errors.emptyPropertyMap(value: any)
 	)
 end
 
--- ---------------------------------------------------------------------------
--- Requirements 2.7, 3.6: property named in Property_Map absent on Target.
--- ---------------------------------------------------------------------------
 function Errors.missingProperty(propertyName: string, target: any)
 	error(
 		string.format(
@@ -104,9 +59,6 @@ function Errors.missingProperty(propertyName: string, target: any)
 	)
 end
 
--- ---------------------------------------------------------------------------
--- Requirement 3.4: `fromTo` start/end Property_Map key sets differ.
--- ---------------------------------------------------------------------------
 function Errors.fromToKeyMismatch(startKeys: { string }, endKeys: { string })
 	error(
 		string.format(
@@ -118,9 +70,6 @@ function Errors.fromToKeyMismatch(startKeys: { string }, endKeys: { string })
 	)
 end
 
--- ---------------------------------------------------------------------------
--- Requirement 4.7: start/end value type mismatch for a single property.
--- ---------------------------------------------------------------------------
 function Errors.typeMismatch(property: string, startType: string, endType: string)
 	error(
 		string.format(
@@ -133,9 +82,6 @@ function Errors.typeMismatch(property: string, startType: string, endType: strin
 	)
 end
 
--- ---------------------------------------------------------------------------
--- Requirement 4.8: property value type not supported by the Interpolator.
--- ---------------------------------------------------------------------------
 function Errors.unsupportedType(property: string, valueType: string)
 	error(
 		string.format(
@@ -147,9 +93,6 @@ function Errors.unsupportedType(property: string, valueType: string)
 	)
 end
 
--- ---------------------------------------------------------------------------
--- Requirement 5.8: `ease` string does not match any Easing_Library entry.
--- ---------------------------------------------------------------------------
 function Errors.unknownEasing(name: string)
 	error(
 		string.format(
@@ -160,9 +103,6 @@ function Errors.unknownEasing(name: string)
 	)
 end
 
--- ---------------------------------------------------------------------------
--- Requirement 5.9: custom `ease` function returned a non-numeric value.
--- ---------------------------------------------------------------------------
 function Errors.invalidCustomEasingReturn(returnedValue: any)
 	error(
 		string.format(
@@ -173,9 +113,6 @@ function Errors.invalidCustomEasingReturn(returnedValue: any)
 	)
 end
 
--- ---------------------------------------------------------------------------
--- Requirement 6.7: invalid `repeat` (negative other than -1, or non-integer).
--- ---------------------------------------------------------------------------
 function Errors.invalidRepeat(value: any)
 	error(
 		string.format(
@@ -186,9 +123,6 @@ function Errors.invalidRepeat(value: any)
 	)
 end
 
--- ---------------------------------------------------------------------------
--- Requirement 6.8: invalid `delay` or `repeatDelay` (negative or > 86400).
--- ---------------------------------------------------------------------------
 function Errors.invalidDelay(fieldName: string, value: any)
 	error(
 		string.format(
@@ -201,9 +135,6 @@ function Errors.invalidDelay(fieldName: string, value: any)
 	)
 end
 
--- ---------------------------------------------------------------------------
--- Requirement 7.5: malformed Relative_Value string.
--- ---------------------------------------------------------------------------
 function Errors.malformedRelativeValue(spec: string)
 	error(
 		string.format(
@@ -214,9 +145,6 @@ function Errors.malformedRelativeValue(spec: string)
 	)
 end
 
--- ---------------------------------------------------------------------------
--- Requirement 7.6: Relative_Value applied to a non-number captured start.
--- ---------------------------------------------------------------------------
 function Errors.nonNumericRelativeStart(property: string, valueType: string)
 	error(
 		string.format(
@@ -228,9 +156,6 @@ function Errors.nonNumericRelativeStart(property: string, valueType: string)
 	)
 end
 
--- ---------------------------------------------------------------------------
--- Requirement 8.4: Keyframe fractional position outside 0..1.
--- ---------------------------------------------------------------------------
 function Errors.invalidKeyframePosition(position: any, index: number?)
 	if index ~= nil then
 		error(
@@ -252,17 +177,10 @@ function Errors.invalidKeyframePosition(position: any, index: number?)
 	end
 end
 
--- ---------------------------------------------------------------------------
--- Requirement 8.7: empty `keyframes` list, or two or more Keyframes sharing
--- the same fractional position.
--- ---------------------------------------------------------------------------
 function Errors.invalidKeyframesList(reason: string)
 	error(string.format("RoMotion: invalid keyframes list -- %s", reason), RAISE_LEVEL)
 end
 
--- ---------------------------------------------------------------------------
--- Requirement 9.5: Timeline `timeScale` set to a value <= 0.
--- ---------------------------------------------------------------------------
 function Errors.invalidTimeScale(value: any)
 	error(
 		string.format(
@@ -273,9 +191,6 @@ function Errors.invalidTimeScale(value: any)
 	)
 end
 
--- ---------------------------------------------------------------------------
--- Requirement 9.7: Timeline added as a child of itself or a descendant.
--- ---------------------------------------------------------------------------
 function Errors.cyclicNesting(child: any)
 	error(
 		string.format(
@@ -286,9 +201,6 @@ function Errors.cyclicNesting(child: any)
 	)
 end
 
--- ---------------------------------------------------------------------------
--- Requirement 9.8: a non-Animation value added as a child to a Timeline.
--- ---------------------------------------------------------------------------
 function Errors.invalidTimelineChild(value: any)
 	error(
 		string.format(
@@ -299,9 +211,6 @@ function Errors.invalidTimelineChild(value: any)
 	)
 end
 
--- ---------------------------------------------------------------------------
--- Requirement 10.7: Position_Parameter names a Label that does not exist.
--- ---------------------------------------------------------------------------
 function Errors.unknownLabel(name: string)
 	error(
 		string.format(
@@ -312,9 +221,6 @@ function Errors.unknownLabel(name: string)
 	)
 end
 
--- ---------------------------------------------------------------------------
--- Requirement 10.8: numeric Position_Parameter is less than 0.
--- ---------------------------------------------------------------------------
 function Errors.invalidPositionParameter(value: any)
 	error(
 		string.format(
@@ -325,9 +231,6 @@ function Errors.invalidPositionParameter(value: any)
 	)
 end
 
--- ---------------------------------------------------------------------------
--- Requirement 11.4: `stagger` value not a number, or outside 0..3600.
--- ---------------------------------------------------------------------------
 function Errors.invalidStagger(value: any)
 	error(
 		string.format(
@@ -338,9 +241,6 @@ function Errors.invalidStagger(value: any)
 	)
 end
 
--- ---------------------------------------------------------------------------
--- Requirement 11.5: Targets list is empty.
--- ---------------------------------------------------------------------------
 function Errors.emptyTargetsList()
 	error("RoMotion: invalid argument Targets -- the Targets list must not be empty", RAISE_LEVEL)
 end
