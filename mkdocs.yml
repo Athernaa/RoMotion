@@ -7,10 +7,10 @@
 
 site_name: RoMotion
 site_description: A GSAP-inspired animation & tweening library for Roblox.
-# TODO: set these to your GitHub username/repo.
-site_url: https://Athernaa.github.io/RoMotion/
+# Served from the dedicated docs subdomain (see docs/CNAME).
+site_url: https://romotion.avenlo.me/
 repo_url: https://github.com/Athernaa/RoMotion
-repo_name: RoMotion
+repo_name: Athernaa/RoMotion
 edit_uri: edit/main/docs/
 
 theme:
