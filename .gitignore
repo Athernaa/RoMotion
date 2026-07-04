@@ -1,0 +1,17 @@
+# Project place file
+.kiro/
+scripts/
+src/shared/RoMotion/__tests__
+/RoMotion.rbxlx
+/test-runner.rbxlx
+
+# Roblox Studio lock files
+/*.rbxlx.lock
+/*.rbxl.lock
+
+# Wally packages (installed via `wally install`)
+/Packages/
+/DevPackages/
+wally.lock
+
+sourcemap.json
