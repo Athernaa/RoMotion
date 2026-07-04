@@ -1,6 +1,8 @@
-# Builds the MkDocs site and publishes it to GitHub Pages on every push to
-# main. After the first successful run, enable Pages in the repo settings
-# (Settings > Pages > Source: "Deploy from a branch" > gh-pages / root).
+# Builds the MkDocs Material site and publishes it to GitHub Pages using the
+# official Pages deployment (no gh-pages branch, no Jekyll).
+#
+# ONE-TIME SETUP: Repo > Settings > Pages > Build and deployment >
+#   Source: "GitHub Actions"   (NOT "Deploy from a branch").
 name: Deploy docs
 
 on:
@@ -9,10 +11,16 @@ on:
   workflow_dispatch: {}
 
 permissions:
-  contents: write
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
 
 jobs:
-  deploy:
+  build:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -26,5 +34,21 @@ jobs:
       - name: Install MkDocs Material
         run: pip install mkdocs-material
 
-      - name: Build and deploy to gh-pages
-        run: mkdocs gh-deploy --force
+      - name: Build site
+        run: mkdocs build --site-dir site
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
